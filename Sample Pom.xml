@@ -1,3 +1,62 @@
+pipeline {
+    agent any
+
+    environment {
+        BITBUCKET_URL = 'bitbucket.org/your-username/your-repo.git'
+        BRANCH = 'main' // Change this to the branch you want to checkout
+        SETTINGS_URL = 'http://example.com/path/to/settings.xml' // URL to your settings.xml file
+        SETTINGS_FILE = 'settings.xml' // Local file name for the downloaded settings.xml
+    }
+
+    stages {
+        stage('Checkout Code') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'your-credentials-id', usernameVariable: 'BITBUCKET_USERNAME', passwordVariable: 'BITBUCKET_PASSWORD')]) {
+                    script {
+                        sh '''
+                        #!/bin/bash
+                        echo "Cloning repository from Bitbucket..."
+                        git clone -b $BRANCH https://$BITBUCKET_USERNAME:$BITBUCKET_PASSWORD@$BITBUCKET_URL
+                        cd your-repo  # Change this to the name of your repository directory
+                        '''
+                    }
+                }
+            }
+        }
+
+        stage('Download Settings') {
+            steps {
+                script {
+                    sh '''
+                    #!/bin/bash
+                    echo "Downloading Maven settings.xml..."
+                    curl -o $SETTINGS_FILE $SETTINGS_URL
+                    '''
+                }
+            }
+        }
+
+        stage('Build with Maven') {
+            steps {
+                script {
+                    sh '''
+                    #!/bin/bash
+                    echo "Building project with Maven..."
+                    mvn clean install --settings $SETTINGS_FILE
+                    '''
+                }
+            }
+        }
+        // Add more stages as needed
+    }
+}
+
+
+
+
+
+
+--------------------------------------------------------------------
 # dependencies.properties
 spring.boot.version=2.6.6
 guava.version=31.1-jre
