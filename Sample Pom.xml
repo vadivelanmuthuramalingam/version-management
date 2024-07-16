@@ -6,6 +6,38 @@ FILE2="file2.xml"
 OUTPUT_FILE="merged_file.xml"
 
 # Extract properties from FILE2
+awk '/<properties>/,/<\/properties>/' "$FILE2" > temp_properties.xml
+
+# Remove the root <properties> tags from the extracted properties
+sed -i '1d;$d' temp_properties.xml
+
+# Insert the extracted properties into FILE1
+awk '{
+    print
+    if ($0 ~ /<properties>/) {
+        while ((getline line < "temp_properties.xml") > 0) {
+            print line
+        }
+    }
+}' "$FILE1" > "$OUTPUT_FILE"
+
+# Clean up temporary file
+rm temp_properties.xml
+
+echo "XML files have been successfully merged into $OUTPUT_FILE."
+
+
+
+
+
+#!/bin/bash
+
+# Input files
+FILE1="file1.xml"
+FILE2="file2.xml"
+OUTPUT_FILE="merged_file.xml"
+
+# Extract properties from FILE2
 properties=$(xmllint --shell "$FILE2" <<EOF
 cat //profile/properties
 EOF
