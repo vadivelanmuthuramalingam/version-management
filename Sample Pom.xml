@@ -6,6 +6,45 @@ FILE2="file2.xml"
 OUTPUT_FILE="merged_file.xml"
 
 # Extract properties from FILE2
+properties=$(xmllint --shell "$FILE2" <<EOF
+cat //profile/properties
+EOF
+)
+
+# Check if the properties extraction was successful
+if [[ "$properties" == *"<properties>"* ]]; then
+    # Extract content inside <properties>...</properties>
+    properties=$(echo "$properties" | sed -n '/<properties>/,/<\/properties>/p' | sed '1d;$d')
+else
+    echo "No properties found in $FILE2"
+    exit 1
+fi
+
+# Create a temporary file with the extracted properties
+temp_file=$(mktemp)
+echo "$properties" > "$temp_file"
+
+# Insert the extracted properties into FILE1
+sed -i '/<properties>/r '"$temp_file" "$FILE1"
+
+# Save the result to OUTPUT_FILE
+cp "$FILE1" "$OUTPUT_FILE"
+
+# Clean up temporary file
+rm "$temp_file"
+
+echo "XML files have been successfully merged into $OUTPUT_FILE."
+
+
+
+#!/bin/bash
+
+# Input files
+FILE1="file1.xml"
+FILE2="file2.xml"
+OUTPUT_FILE="merged_file.xml"
+
+# Extract properties from FILE2
 properties=$(xmllint --xpath '//settings/profiles/profile/properties/*' "$FILE2" 2>/dev/null)
 
 # Check if the properties extraction was successful
