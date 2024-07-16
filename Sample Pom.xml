@@ -1,3 +1,36 @@
+#!/bin/bash
+
+# Input files
+FILE1="file1.xml"
+FILE2="file2.xml"
+OUTPUT_FILE="merged_file.xml"
+
+# Extract properties from FILE2
+properties=$(xmlstarlet sel -t -c "//profile/properties" "$FILE2")
+
+# Remove the root element from the extracted properties
+properties=$(echo "$properties" | sed 's/<\/\?properties>//g')
+
+# Create a temporary XML file with the new properties to be inserted
+temp_file=$(mktemp)
+echo "<root><properties>${properties}</properties></root>" > "$temp_file"
+
+# Merge the properties into FILE1
+xmlstarlet ed -L -s "/project/properties" -t elem -n temp -v "" \
+  -r "//temp" -v "$(cat "$temp_file" | xmlstarlet sel -t -c "/root/properties" | sed 's/"/\\"/g')" "$FILE1"
+
+# Save the result to OUTPUT_FILE
+mv "$FILE1" "$OUTPUT_FILE"
+
+# Clean up temporary file
+rm "$temp_file"
+
+echo "XML files have been successfully merged into $OUTPUT_FILE."
+
+
+
+
+
 pipeline {
     agent any
 
