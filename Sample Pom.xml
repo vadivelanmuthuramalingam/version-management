@@ -1,5 +1,22 @@
 #!/bin/bash
 
+# Define the filename
+filename="data.xml"
+
+# Use awk to extract the servicename1 version
+servicename1_version=$(awk -F'[><]' '/<servicename1>/ {print $3}' "$filename")
+
+# Check if servicename1_version is empty
+if [[ -z "$servicename1_version" ]]; then
+    echo "servicename1 version not found in the XML file."
+else
+    echo "servicename1 version: $servicename1_version"
+fi
+
+
+
+#!/bin/bash
+
 # Input files
 FILE1="file1.xml"
 FILE2="file2.xml"
