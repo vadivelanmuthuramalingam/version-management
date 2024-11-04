@@ -1,19 +1,20 @@
-pipeline {
-    agent any
-    stages {
-        stage('Get Repo Name') {
-            steps {
-                script {
-                    // Extract repo name from the GIT_URL environment variable
-                    def gitUrl = env.GIT_URL ?: ''
-                    def repoName = gitUrl.split('/').last().replaceAll('.git$', '')
-                    
-                    echo "Repository Name: ${repoName}"
-                }
-            }
-        }
-    }
-}
+#!/bin/bash
+
+# Get the repository URL from Git
+repo_url=$(git config --get remote.origin.url)
+
+# Check if repo_url is empty
+if [[ -z "$repo_url" ]]; then
+    echo "Repository URL not found. Ensure this is a Git repository with a remote URL configured."
+    exit 1
+fi
+
+# Extract the repository name from the URL
+repo_name=$(echo "$repo_url" | awk -F'/' '{print $NF}' | sed 's/.git$//')
+
+# Print the repository name
+echo "Repository Name: $repo_name"
+
 
 
 #!/bin/bash
