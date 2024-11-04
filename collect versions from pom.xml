@@ -1,0 +1,212 @@
+<dependency>
+    <groupId>org.eclipse.jgit</groupId>
+    <artifactId>org.eclipse.jgit</artifactId>
+    <version>5.13.0.202109080827-r</version>
+</dependency>
+
+
+import org.eclipse.jgit.api.Git;
+import org.eclipse.jgit.api.errors.GitAPIException;
+import org.json.JSONArray;
+import org.json.JSONObject;
+
+import java.io.File;
+import java.io.IOException;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.util.Scanner;
+
+public class BitbucketRepoCloner {
+
+    private static final String BITBUCKET_USER = "your_username";      // Bitbucket username
+    private static final String BITBUCKET_PASS = "your_password";      // Bitbucket password or app password
+    private static final String BITBUCKET_WORKSPACE = "your_workspace"; // Bitbucket workspace/team name
+    private static final String BASE_URL = "https://api.bitbucket.org/2.0/repositories/" + BITBUCKET_WORKSPACE;
+    private static final String TARGET_DIR = "path/to/your/target/directory"; // e.g., "C:/bitbucket_repos"
+
+    public static void main(String[] args) {
+        try {
+            int page = 1;
+            while (true) {
+                // Fetch repository list from Bitbucket API
+                URL url = new URL(BASE_URL + "?page=" + page);
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                String auth = BITBUCKET_USER + ":" + BITBUCKET_PASS;
+                String encodedAuth = java.util.Base64.getEncoder().encodeToString(auth.getBytes());
+                conn.setRequestProperty("Authorization", "Basic " + encodedAuth);
+                conn.setRequestMethod("GET");
+
+                if (conn.getResponseCode() != 200) {
+                    System.out.println("Failed to fetch repositories: HTTP error code " + conn.getResponseCode());
+                    break;
+                }
+
+                // Parse JSON response
+                String inline = "";
+                Scanner scanner = new Scanner(conn.getInputStream());
+                while (scanner.hasNext()) {
+                    inline += scanner.nextLine();
+                }
+                scanner.close();
+
+                JSONObject response = new JSONObject(inline);
+                JSONArray repos = response.getJSONArray("values");
+
+                if (repos.length() == 0) {
+                    System.out.println("No more repositories to clone.");
+                    break;
+                }
+
+                // Clone each repository
+                for (int i = 0; i < repos.length(); i++) {
+                    JSONObject repo = repos.getJSONObject(i);
+                    String repoName = repo.getString("name");
+                    String repoUrl = null;
+
+                    // Find the HTTPS clone URL
+                    JSONArray links = repo.getJSONObject("links").getJSONArray("clone");
+                    for (int j = 0; j < links.length(); j++) {
+                        JSONObject link = links.getJSONObject(j);
+                        if (link.getString("name").equals("https")) {
+                            repoUrl = link.getString("href");
+                            break;
+                        }
+                    }
+
+                    if (repoUrl != null) {
+                        cloneRepository(repoName, repoUrl);
+                    } else {
+                        System.out.println("No HTTPS URL found for repository " + repoName);
+                    }
+                }
+
+                // Check for next page
+                if (!response.has("next")) {
+                    break;
+                }
+                page++;
+            }
+
+        } catch (IOException e) {
+            System.out.println("Error fetching repositories: " + e.getMessage());
+        }
+    }
+
+    private static void cloneRepository(String repoName, String repoUrl) {
+        try {
+            System.out.println("Cloning repository: " + repoName);
+            File repoDir = new File(TARGET_DIR, repoName);
+            Git.cloneRepository()
+                    .setURI(repoUrl)
+                    .setDirectory(repoDir)
+                    .call();
+            System.out.println("Cloned " + repoName + " to " + repoDir.getAbsolutePath());
+        } catch (GitAPIException e) {
+            System.out.println("Failed to clone " + repoName + ": " + e.getMessage());
+        }
+    }
+}
+
+
+
+
+
+
+
+<dependency>
+    <groupId>javax.xml.bind</groupId>
+    <artifactId>jaxb-api</artifactId>
+    <version>2.3.1</version>
+</dependency>
+
+
+
+
+import org.w3c.dom.*;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
+
+public class DependencyCollector {
+
+    private static final String REPO_BASE_DIR = "path/to/your/cloned/repos"; // Replace with your base directory for repos
+
+    public static void main(String[] args) {
+        File baseDir = new File(REPO_BASE_DIR);
+        if (!baseDir.isDirectory()) {
+            System.out.println("Base directory does not exist or is not a directory.");
+            return;
+        }
+
+        // Collect dependencies from each repository
+        for (File repoDir : baseDir.listFiles(File::isDirectory)) {
+            File pomFile = new File(repoDir, "pom.xml");
+            if (pomFile.exists()) {
+                System.out.println("Parsing dependencies in: " + repoDir.getName());
+                List<Dependency> dependencies = parseDependenciesFromPom(pomFile);
+                dependencies.forEach(System.out::println);
+            } else {
+                System.out.println("No pom.xml found in " + repoDir.getName());
+            }
+        }
+    }
+
+    private static List<Dependency> parseDependenciesFromPom(File pomFile) {
+        List<Dependency> dependencies = new ArrayList<>();
+
+        try {
+            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+            DocumentBuilder builder = factory.newDocumentBuilder();
+            Document document = builder.parse(pomFile);
+            document.getDocumentElement().normalize();
+
+            NodeList dependencyNodes = document.getElementsByTagName("dependency");
+            for (int i = 0; i < dependencyNodes.getLength(); i++) {
+                Node node = dependencyNodes.item(i);
+                if (node.getNodeType() == Node.ELEMENT_NODE) {
+                    Element element = (Element) node;
+
+                    String groupId = getTagValue("groupId", element);
+                    String artifactId = getTagValue("artifactId", element);
+                    String version = getTagValue("version", element);
+
+                    dependencies.add(new Dependency(groupId, artifactId, version));
+                }
+            }
+        } catch (Exception e) {
+            System.out.println("Error parsing " + pomFile.getName() + ": " + e.getMessage());
+        }
+
+        return dependencies;
+    }
+
+    private static String getTagValue(String tag, Element element) {
+        NodeList nodeList = element.getElementsByTagName(tag).item(0).getChildNodes();
+        Node node = (Node) nodeList.item(0);
+        return node != null ? node.getNodeValue() : "";
+    }
+
+    // Dependency class to hold parsed values
+    static class Dependency {
+        private final String groupId;
+        private final String artifactId;
+        private final String version;
+
+        public Dependency(String groupId, String artifactId, String version) {
+            this.groupId = groupId;
+            this.artifactId = artifactId;
+            this.version = version;
+        }
+
+        @Override
+        public String toString() {
+            return "Dependency{" +
+                    "groupId='" + groupId + '\'' +
+                    ", artifactId='" + artifactId + '\'' +
+                    ", version='" + version + '\'' +
+                    '}';
+        }
+    }
+}
