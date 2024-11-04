@@ -1,3 +1,21 @@
+pipeline {
+    agent any
+    stages {
+        stage('Get Repo Name') {
+            steps {
+                script {
+                    // Extract repo name from the GIT_URL environment variable
+                    def gitUrl = env.GIT_URL ?: ''
+                    def repoName = gitUrl.split('/').last().replaceAll('.git$', '')
+                    
+                    echo "Repository Name: ${repoName}"
+                }
+            }
+        }
+    }
+}
+
+
 #!/bin/bash
 
 # Define the filename
