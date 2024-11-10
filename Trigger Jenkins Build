@@ -1,0 +1,96 @@
+#!/bin/bash
+
+# Variables
+JENKINS_URL="http://your-jenkins-url.com"
+USER="your-username"
+API_TOKEN="your-api-token"
+BRANCH_NAME=$1  # Branch name to build, passed as an argument
+XML_FILE="job_names.xml"  # XML file containing job names
+LOG_FILE="build_status.log"
+
+# Ensure required tools are installed
+if ! command -v xmllint &> /dev/null || ! command -v jq &> /dev/null; then
+    echo "This script requires 'xmllint' and 'jq'. Please install them and try again."
+    exit 1
+fi
+
+# Parse job names from XML
+JOB_NAMES=($(xmllint --xpath "//job/name/text()" "${XML_FILE}"))
+
+# Function to trigger a build and get its status
+trigger_build() {
+    local JOB_NAME=$1
+
+    # Trigger Jenkins build with branch parameter
+    TRIGGER_RESPONSE=$(curl -s -X POST "${JENKINS_URL}/job/${JOB_NAME}/buildWithParameters?BRANCH_NAME=${BRANCH_NAME}" \
+        --user "${USER}:${API_TOKEN}")
+
+    # Extract queue ID
+    QUEUE_URL="${JENKINS_URL}/queue/api/json"
+    QUEUE_ID=$(curl -s "${QUEUE_URL}" --user "${USER}:${API_TOKEN}" | jq '.items[0].id')
+
+    # Wait for the build to start
+    while :; do
+        BUILD_URL=$(curl -s "${JENKINS_URL}/queue/item/${QUEUE_ID}/api/json" \
+            --user "${USER}:${API_TOKEN}" | jq -r .executable.url)
+        
+        if [ "$BUILD_URL" != "null" ]; then
+            echo "Build for ${JOB_NAME} started at: ${BUILD_URL}"
+            break
+        fi
+
+        echo "Waiting for ${JOB_NAME} to start..."
+        sleep 5
+    done
+
+    # Check the build status
+    BUILD_STATUS_URL="${BUILD_URL}api/json"
+    while :; do
+        BUILD_STATUS=$(curl -s "${BUILD_STATUS_URL}" --user "${USER}:${API_TOKEN}" | jq -r .result)
+
+        if [ "$BUILD_STATUS" != "null" ]; then
+            echo "Build for ${JOB_NAME} finished with status: ${BUILD_STATUS}"
+            # Write the status to the log file
+            echo "${JOB_NAME}: ${BUILD_STATUS}" >> "${LOG_FILE}"
+            break
+        fi
+
+        echo "Build for ${JOB_NAME} is still running..."
+        sleep 5
+    done
+}
+
+# Clear the log file
+> "${LOG_FILE}"
+
+# Trigger all builds in parallel
+for JOB_NAME in "${JOB_NAMES[@]}"; do
+    trigger_build "${JOB_NAME}" &
+done
+
+# Wait for all parallel jobs to complete
+wait
+
+echo "All builds are complete. Statuses are logged in ${LOG_FILE}."
+
+
+
+
+
+<jobs>
+    <job>
+        <name>job-repo-1</name>
+    </job>
+    <job>
+        <name>job-repo-2</name>
+    </job>
+    <job>
+        <name>job-repo-3</name>
+    </job>
+    <job>
+        <name>job-repo-4</name>
+    </job>
+    <job>
+        <name>job-repo-5</name>
+    </job>
+</jobs>
